@@ -1,23 +1,16 @@
-QL script that creates a stored procedure ComputeAverageWeightedScoreForUser that computes and store the average weighted score for a student
-DELIMITER $$ ;
-CREATE PROCEDURE ComputeAverageWeightedScoreForUser (
-	IN p_user_id INT
-)
+-- Creates stored procedure ComputeAverageWeightedScoreForUser
+-- that computes and stores the average weighted score for a
+-- student
+DELIMITER $
+CREATE PROCEDURE ComputeAverageWeightedScoreForUser(IN user_id INT)
 BEGIN
-	DECLARE sum_score_factor FLOAT;
-	DECLARE sum_weights FLOAT;
-
-	SELECT SUM(score * (SELECT weight FROM projects WHERE id = project_id))
-	INTO sum_score_factor
-	FROM corrections
-	WHERE user_id = p_user_id;
-
-	SELECT SUM((SELECT weight FROM projects WHERE id = project_id))
-	INTO sum_weights
-	FROM corrections
-	WHERE user_id = p_user_id;
-
-	UPDATE users SET average_score = (sum_score_factor / sum_weights) WHERE id = p_user_id;
-END
-$$
-DELIMITER ; $$
+    DECLARE average_weight_score, total_projects_weighted_score FLOAT;
+    DECLARE total_projects_weight INT;
+    SELECT SUM(score * projects.weight) INTO total_projects_weighted_score
+        FROM corrections JOIN projects ON project_id = projects.id
+        WHERE corrections.user_id = user_id GROUP BY corrections.user_id;
+    SELECT SUM(projects.weight) INTO total_projects_weight FROM projects;
+    SET average_weight_score = total_projects_weighted_score / total_projects_weight;
+    UPDATE users SET average_score = average_weight_score WHERE id = user_id;
+END$
+DELIMITER ;

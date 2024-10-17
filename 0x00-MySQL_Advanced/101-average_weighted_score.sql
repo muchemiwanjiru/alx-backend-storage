@@ -1,46 +1,27 @@
-QL script that creates a stored procedure ComputeAverageWeightedScoreForUsers that computes and store the average weighted score for all students
-DROP PROCEDURE IF EXISTS ComputeAverageWeightedScoreForUser;
-DROP PROCEDURE IF EXISTS ComputeAverageWeightedScoreForUsers;
-
-DELIMITER $$ ;
-
-CREATE PROCEDURE ComputeAverageWeightedScoreForUser (
-	IN p_user_id INT
-)
+-- SQL script that creates a stored procedure 
+-- ComputeAverageWeightedScoreForUsers that computes and store 
+-- the average weighted score for all students.
+DELIMITER $
+CREATE PROCEDURE ComputeAverageWeightedScoreForUsers()
 BEGIN
-	DECLARE sum_score_factor FLOAT;
-	DECLARE sum_weights FLOAT;
-
-	SELECT SUM(score * (SELECT weight FROM projects WHERE id = project_id))
-	INTO sum_score_factor
-	FROM corrections
-	WHERE user_id = p_user_id;
-
-	SELECT SUM((SELECT weight FROM projects WHERE id = project_id))
-	INTO sum_weights
-	FROM corrections
-	WHERE user_id = p_user_id;
-
-	UPDATE users SET average_score = (sum_score_factor / sum_weights) WHERE id = p_user_id;
-END
-$$
-
-
-CREATE PROCEDURE ComputeAverageWeightedScoreForUsers ()
-BEGIN
-	DECLARE scores FLOAT;
-	DECLARE num_users INT;
-	DECLARE i INT;
-
-	SELECT COUNT(*) INTO num_users FROM users;
-	SET i = 1;
-	SET scores = 0;
-
-	WHILE i <= num_users DO
-		CALL ComputeAverageWeightedScoreForUser(i);		
-		SET i = i + 1;
-	END WHILE;
-END
-$$
-
-DELIMITER ; $$
+    DECLARE student_id, total_projects_weight INT;
+    DECLARE average_weight_score, total_projects_weighted_score FLOAT;
+    DECLARE students_flag INT DEFAULT FALSE;
+    DECLARE students_cursor CURSOR FOR SELECT id from users;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET students_flag = TRUE;
+    OPEN students_cursor;
+    students_loop: LOOP
+        FETCH students_cursor INTO student_id;
+        IF students_flag THEN
+            LEAVE students_loop;
+        END IF;
+        SELECT SUM(score * projects.weight) INTO total_projects_weighted_score
+            FROM corrections JOIN projects ON project_id = projects.id
+            WHERE user_id = student_id GROUP BY user_id;
+        SELECT SUM(projects.weight) INTO total_projects_weight FROM projects;
+        SET average_weight_score = total_projects_weighted_score / total_projects_weight;
+        UPDATE users SET average_score = average_weight_score WHERE id = student_id;
+    END LOOP students_loop;
+    CLOSE students_cursor;
+END$
+DELIMITER ;
